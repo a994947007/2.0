@@ -70,16 +70,14 @@ public:
 		while (node != nullptr) {
 			int cmp = compare(e, node->listElement.front());
 			if (cmp == 0) {
-				if (node->listElement.size() == 1) {
-					this->size--;
-					remove(node);
-					return;
-				}
 				typename list<E>::iterator itor;
 				for (itor = node->listElement.begin(); itor != node->listElement.end(); ) {
 					if (equal->equals(*itor, e)) {	
 						itor = node->listElement.erase(itor);
 						this->size--;
+						if (node->listElement.size() == 0) {
+							removeNode(node);
+						}
 						return;
 					}
 					else {
@@ -109,7 +107,6 @@ public:
 		Node<E>* node = this->root;
 		while (node != nullptr) {
 			int cmp = comparator->compare(e, node->listElement.front());
-			len++;
 			if (cmp == 0) {
 				for (typename list<E>::iterator itor = node->listElement.begin(); itor != node->listElement.end(); itor++) {
 					len++;
@@ -118,11 +115,14 @@ public:
 						return len;
 					}
 				}
+				len++;
 			}
 			else if (cmp > 0) {
+				len++;
 				node = node->right;
 			}
 			else {
+				len++;
 				node = node->left;
 			}
 		}
@@ -201,7 +201,7 @@ private:
 	}
 protected:
 	//结点被删除时，结点内只剩1个元素
-	void remove(Node<E>* node) {
+	virtual void removeNode(Node<E>* node) {
 		//度为2的结点直接寻址后继替换内容
 		if (node->hasTwoChildren()) {
 			Node<E>* s = successor(node);

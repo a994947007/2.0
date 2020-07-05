@@ -12,6 +12,7 @@ using namespace std;
 class FlowTable
 {
 private:
+	ULONG size;
 	FlowEqual flowEqual;
 	FlowComparator flowComparator;
 	SCBF * scbf;
@@ -25,7 +26,7 @@ public:
 	bool insert(Flow *);
 	void free();
 
-	ULONG getSize();
+	ULONG getFlowNum();
 	ULONG timeoutScan(Time);
 
 	void setMask(const FlowID&);

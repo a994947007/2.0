@@ -1,36 +1,52 @@
 #include "stdafx.h"
 #include "FlowRedBlackTree.h"
 
-FlowRedBlackTree::FlowRedBlackTree(Comparator<Flow*> * comparator,Equal<Flow*> * equal,SCBF * scbf) : RedBlackTree(comparator,equal),scbf(scbf)
+FlowRedBlackTree::FlowRedBlackTree(Comparator<Flow*> * comparator,Equal<Flow*> * equal,SCBF * scbf) : BSTree(comparator,equal),scbf(scbf)
 {
 }
 
 
-ULONG FlowRedBlackTree::timeoutScan(Time & t)
+ULONG FlowRedBlackTree::timeoutScan(Time t)
 {
-	list<Flow*> list;
-	return 0;
+	ULONG len = 0;
+	timeoutScan(t, root,len);
+	return len;
 }
 
 // 后序遍历删除节点可以减少调整开销
-ULONG FlowRedBlackTree::timeoutScan(Time & tCur,Node<Flow*> * node) {
-	ULONG len = 0;
+ULONG FlowRedBlackTree::timeoutScan(Time tCur,Node<Flow*> * node,ULONG & len) {
 	if (node != nullptr) {
-		timeoutScan(tCur, node->left);
-		timeoutScan(tCur, node->right);
-		for (list<Flow*>::iterator itor = node->listElement.begin(); itor != node->listElement.end(); itor++,len++) {
-			Time t = tCur - (*itor)->tLast;
-			if (t.sec >= FLOW_TIMEOUT) {
-				// 删除节点
-				Flow * p = *itor;
-				itor = node->listElement.erase(itor);
-				delete p;
-				// 如果节点中的元素数量小于1，直接删除
-				if (node->listElement.size() == 0) {
-					remove(node);
-					break;
+		list<Node<Flow *>*> stack1;
+		list<Node<Flow *>*> stack2;
+		stack1.push_back(node);
+		while (stack1.size() != 0) {
+			Node<Flow*> * p = stack1.back();
+			stack1.pop_back();
+			stack2.push_back(p);
+			if (p->left != nullptr) {
+				stack1.push_back(p->left);
+			}
+			if (p->right != nullptr) {
+				stack1.push_back(p->right);
+			}
+		}
+		while (stack2.size() != 0) {
+			Node<Flow *> * s = stack2.back();
+			stack2.pop_back();
+			for (list<Flow*>::iterator itor = s->listElement.begin(); itor != s->listElement.end(); ) {
+				Time t = tCur - (*itor)->tLast;
+				if(t.sec > FLOW_TIMEOUT){
+					Flow * tmp = (*itor);
+					itor = s->listElement.erase(itor);
+					scbf->filter_delete(*(SCFlow*)tmp);
+					delete tmp;
+					len++;
+					if (s->listElement.size() == 0) {
+						removeNode(s);
+					}
 				}
 			}
 		}
 	}
+	return len;
 }

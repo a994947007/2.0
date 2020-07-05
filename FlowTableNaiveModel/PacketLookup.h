@@ -3,6 +3,7 @@
 #include "uniform.h"
 #include "HashTable.h"
 #include "SCBF.h"
+#include "FlowTable.h"
 
 #include <list>
 #include <fstream>
@@ -68,11 +69,13 @@ protected:
 	bool	UpdateFlow(Flow *, const Packet &, const FlowID &);
 	bool	WriteResult(bool, const UserConfig &);
 	ULONG	GetFlowNum(HashTable **);
+	ULONG	GetFlowNum(FlowTable **);
 
 protected:
 	list<ifstream *> m_fileStream;		//TRACEÎÄ¼þÁ÷
 	SCBF * filter2017[MASK_NUM], * filter2019[MASK_NUM];
-	HashTable * m_tableNaive[MASK_NUM], * m_tableCBF[MASK_NUM],* m_tableSCBF[MASK_NUM];	
+	HashTable * m_tableNaive[MASK_NUM], * m_tableCBF[MASK_NUM];	
+	FlowTable * m_tableSCBF[MASK_NUM];
 
 	ULONG m_ulLookupNum,m_ulLookupLenNaive,m_ulLookupLenSCBF,m_ulLookupLenCBF;
 	ULONG m_ulProbeNumNaive, m_ulProbeNumSCBF, m_ulProbeNumCBF;

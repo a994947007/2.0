@@ -2,7 +2,7 @@
 #include "HashFunctions.h"
 #include "FlowTable.h"
 
-FlowTable::FlowTable(UINT uiLen,SCBF * scbf) :HASH_LEN(uiLen), ulPktNum(0), tLastPkt(0, 0),scbf(scbf)
+FlowTable::FlowTable(UINT uiLen,SCBF * scbf) :HASH_LEN(uiLen), ulPktNum(0), tLastPkt(0, 0),scbf(scbf),size(0)
 {
 	for (ULONG i = 0; i < HASH_LEN; i++)
 	{
@@ -46,6 +46,7 @@ bool FlowTable::insert(Flow * flow)
 {
 	USHORT  usPos = calcHash(flow->key);
 	m_pHashTable[usPos]->add(flow);
+	this->size++;
 	return true;
 }
 
@@ -57,7 +58,7 @@ void FlowTable::free()
 	}
 }
 
-ULONG FlowTable::getSize()
+ULONG FlowTable::getFlowNum()
 {
 	ULONG size = 0;
 	for (UINT i = 0; i < HASH_LEN; i++)
@@ -66,7 +67,7 @@ ULONG FlowTable::getSize()
 	}
 	return size;
 }
-
+// 返回删除的流表项数量
 ULONG FlowTable::timeoutScan(Time t)
 {
 	ULONG len = 0;
@@ -77,9 +78,13 @@ ULONG FlowTable::timeoutScan(Time t)
 	return len;
 }
 
-void FlowTable::setMask(const FlowID& mask)
+void FlowTable::setMask(const FlowID & mask)
 {
-	this->mask = mask;
+	this->mask.proto = mask.proto;
+	this->mask.src.ip = mask.src.ip;
+	this->mask.src.port = mask.src.port;
+	this->mask.dst.ip = mask.dst.ip;
+	this->mask.dst.port = mask.dst.port;
 }
 
 USHORT FlowTable::calcHash(const FlowID & key)

@@ -18,7 +18,7 @@ PacketLookup::PacketLookup(const UserConfig & info) :
 		filter2019[i] = new SCBF(info.scbfCountersLen, info.scbfInitCapacity);			//SCBF极限容量设置是一个优化指标
 
 		m_tableNaive[i] = new HashTable(info.uiHashLen);
-		m_tableSCBF[i] = new HashTableSCBF(info.uiHashLen,filter2019[i]);
+		m_tableSCBF[i] = new FlowTable(info.uiHashLen,filter2019[i]);
 		m_tableCBF[i] = new HashTableSCBF(info.uiHashLen,filter2017[i]);
 	}
 }
@@ -76,7 +76,7 @@ bool PacketLookup::Initialize(const UserConfig & info) {
 			mask.dst.ip = MASK_LIST[j];
 			mask.dst.port = MASK_PORT;
 			m_tableNaive[i * MASK_NUM_ROOT + j]->SetMask(mask);
-			m_tableSCBF[i * MASK_NUM_ROOT + j]->SetMask(mask);
+			m_tableSCBF[i * MASK_NUM_ROOT + j]->setMask(mask);
 			m_tableCBF[i * MASK_NUM_ROOT + j]->SetMask(mask);
 		}
 	}
@@ -98,9 +98,10 @@ void PacketLookup::LookupTestProc(const UserConfig & info) {
 
 	Time firstReadPktTime;
 	bool readAttackPktFlag = false;
-
+	ULONG _i = 0;
 	Packet pkt;
 	bool pktFlag = true;
+	ULONG pktNum = 0;
 	while (pktFlag) {
 		if (readAttackPktFlag) {	//获取一个攻击包
 			pktFlag = GetPacket(pkt, info.benignPktNum,info.attackPktNum);
@@ -108,11 +109,12 @@ void PacketLookup::LookupTestProc(const UserConfig & info) {
 		else {				//获取一个正常包
 			pktFlag = GetPacket(pkt);
 		}
+		pktNum++;
 
 		m_ulLookupNum++;
 
 		MaskProbeNaive(pkt);
-		MaskProbeCBF(pkt);
+		//MaskProbeCBF(pkt);
 		MaskProbeSCBF(pkt);
 
 		if (bIsFirst) {
@@ -129,12 +131,13 @@ void PacketLookup::LookupTestProc(const UserConfig & info) {
 			else {
 				readAttackPktFlag = false;
 			}
-			if (t.sec >= 1) {
+			if(pktNum > 10000){
+			//if (t.sec >= 1) {
 				WriteResult(true, info);
 				tLastWrite = pkt.time;
 
 				m_ulLookupNum = 0;
-
+				pktNum = 0;
 				m_ulLookupLenNaive = 0;
 				m_ulLookupLenCBF = 0;
 				m_ulLookupLenSCBF = 0;
@@ -152,10 +155,26 @@ void PacketLookup::LookupTestProc(const UserConfig & info) {
 
 			t = pkt.time - tLastScan;
 
+
 			if (t.usec >= SCAN_INTERVAL) {
+				_i++;
+				if (_i == 5) {
+					int k = 0;
+					k++;
+				}
 				for (int i = 0; i < MASK_NUM; i++) {
+					ULONG flowNum1 = m_tableSCBF[i]->getFlowNum();
+					ULONG flowNum2 = m_tableNaive[i]->GetTotalNum();
+					if (flowNum1 != flowNum2) {
+						flowNum1 = flowNum2;
+					}
+					m_tableSCBF[i]->timeoutScan(pkt.time);
 					m_tableNaive[i]->TimeoutScan(pkt.time);
-					m_tableSCBF[i]->TimeoutScan(pkt.time);
+					ULONG flowNum3 = m_tableSCBF[i]->getFlowNum();
+					ULONG flowNum4 = m_tableNaive[i]->GetTotalNum();	
+					if (flowNum3 != flowNum4) {
+						flowNum3 = flowNum4;
+					}
 					m_tableCBF[i]->TimeoutScan(pkt.time);
 				}
 
@@ -244,7 +263,7 @@ bool PacketLookup::MaskProbeSCBF(const Packet & pkt) {
 		bool flag = filter2019[i]->filter_query((FlowID)fid&m_tableSCBF[i]->mask);
 		m_ulSCBFFindNum++;
 		if (flag) {
-			m_ulLookupLenSCBF += m_tableSCBF[i]->Find(fid, pNode);
+			m_ulLookupLenSCBF += m_tableSCBF[i]->find(fid, pNode);
 		}
 		if (NULL != pNode) {
 			index = i;
@@ -265,9 +284,9 @@ bool PacketLookup::MaskProbeSCBF(const Packet & pkt) {
 			}
 		}
 		filter2019[index]->filter_insert(*(SCFlow *)pNode);
+		m_tableSCBF[index]->insert(pNode);
 	}
 	UpdateFlow(pNode, pkt, fid);
-	m_tableSCBF[index]->Insert(pNode);
 	return true;
 }
 
@@ -366,7 +385,7 @@ bool PacketLookup::WriteResult(bool bIsOn, const UserConfig & info) {
 		double dProbeNumSCBF = (double)m_ulProbeNumSCBF / m_ulLookupNum;
 		double dSCBFError = (double)m_ulSCBFErrorNum / m_ulSCBFFindNum;
 		
-		fprintf(pfile, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\r\n", GetFlowNum(m_tableNaive), dAslNaive, dProbeNumNaive,dAslCBF,dProbeNumCBF, dCBFError,dAslSCBF,dProbeNumSCBF,dSCBFError);
+		fprintf(pfile, "%d\t%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\r\n", GetFlowNum(m_tableSCBF),GetFlowNum(m_tableNaive), dAslNaive, dProbeNumNaive,dAslCBF,dProbeNumCBF, dCBFError,dAslSCBF,dProbeNumSCBF,dSCBFError);
 	}
 
 	if (pfile != NULL) {
@@ -397,6 +416,14 @@ ULONG PacketLookup::GetFlowNum(HashTable ** tuples) {
 	int count = 0;
 	for (int i = 0; i<MASK_NUM; i++) {
 		count += tuples[i]->GetTotalNum();
+	}
+	return count;
+}
+
+ULONG PacketLookup::GetFlowNum(FlowTable ** tuples) {
+	int count = 0;
+	for (int i = 0; i < MASK_NUM; i++) {
+		count += tuples[i]->getFlowNum();
 	}
 	return count;
 }
